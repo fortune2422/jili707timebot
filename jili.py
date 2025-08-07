@@ -8,7 +8,6 @@ from telegram.ext import (
 import pytz
 import random
 import logging
-import asyncio
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -74,28 +73,26 @@ async def send_signals(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logging.error(f"An error occurred: {e}")
 
-async def main():
-    app = ApplicationBuilder().token(bot_token).build()
-    app.add_handler(CommandHandler("ping", ping))
-    
-    # 获取 job queue
+async def on_startup(app):
+    # 安排任务：每小时一次，从下个整点开始
     job_queue = app.job_queue
-
-    # 当前时间
     current_time = datetime.now(pytz.timezone('America/Sao_Paulo'))
     seconds_until_next_hour = (60 - current_time.minute) * 60 - current_time.second
 
-    # 安排任务：每小时一次，从下个整点开始
     job_queue.run_repeating(
         send_signals,
         interval=3600,
         first=timedelta(seconds=seconds_until_next_hour)
     )
-    
-    await app.run_polling()
-    
+    logging.info("✅ 定时任务已启动")
+
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ Bot is alive!")
 
+def main():
+    app = ApplicationBuilder().token(bot_token).post_init(on_startup).build()
+    app.add_handler(CommandHandler("ping", ping))
+    app.run_polling()
+
 if __name__ == '__main__':
-    asyncio.run(main())
+    main()
