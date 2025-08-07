@@ -88,9 +88,11 @@ async def main():
         interval=3600,
         first=timedelta(seconds=seconds_until_next_hour)
     )
-
-    # 启动 bot
-    await app.run_polling()
+    
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
+    await app.updater.idle()
 
 if __name__ == '__main__':
     asyncio.run(main())
