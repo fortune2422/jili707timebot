@@ -1,3 +1,5 @@
+# jilibot.py
+
 from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import (
@@ -8,6 +10,10 @@ from telegram.ext import (
 import pytz
 import random
 import logging
+import os
+
+from fastapi import FastAPI, Request
+import uvicorn
 
 # ✅ 设置日志输出
 logging.basicConfig(
@@ -15,8 +21,16 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-# ✅ Bot token
-bot_token = '6588452433:AAFf0uLB8y6wkA3hi0nU8o78HWla7wsdk9I'
+# ✅ Telegram Bot Token 和 Webhook 路径
+bot_token = os.getenv("BOT_TOKEN")  # 建议放入环境变量
+WEBHOOK_PATH = f"/webhook/{bot_token}"
+WEBHOOK_URL = f"https://your-render-url.onrender.com{WEBHOOK_PATH}"  # ⛳ 修改为你的 Render 域名
+
+# ✅ FastAPI 应用实例
+app = FastAPI()
+
+# ✅ Telegram Application
+application = ApplicationBuilder().token(bot_token).build()
 
 # ✅ /ping 命令响应
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -26,7 +40,7 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logging.error("🚨 Exception while handling update:", exc_info=context.error)
 
-# ✅ 定时任务发送函数
+# ✅ 定时任务函数
 async def send_signals(context: ContextTypes.DEFAULT_TYPE):
     try:
         signals = {
@@ -86,9 +100,18 @@ async def send_signals(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logging.error(f"❌ Erro ao enviar sinais: {e}")
 
-# ✅ 启动任务（在 bot 启动后触发）
-async def on_startup(app):
-    job_queue = app.job_queue
+# ✅ 机器人启动后执行任务（设定定时发送）
+async def on_startup():
+    # 设置 webhook
+    await application.bot.set_webhook(WEBHOOK_URL)
+    logging.info(f"✅ Webhook set: {WEBHOOK_URL}")
+
+    # 初始化 Application
+    await application.initialize()
+    await application.start()
+
+    # 设置定时任务
+    job_queue = application.job_queue
     brazil_tz = pytz.timezone('America/Sao_Paulo')
     now = datetime.now(brazil_tz)
     seconds_until_next_hour = (60 - now.minute) * 60 - now.second
@@ -100,15 +123,24 @@ async def on_startup(app):
     )
     logging.info("⏰ Agendador de sinais iniciado.")
 
-# ✅ 主函数
-def main():
-    app = ApplicationBuilder().token(bot_token).post_init(on_startup).build()
+# ✅ FastAPI 接收 Telegram 推送
+@app.post(WEBHOOK_PATH)
+async def telegram_webhook(request: Request):
+    update = await request.json()
+    await application.update_queue.put(Update.de_json(update, application.bot))
+    return {"ok": True}
 
-    app.add_handler(CommandHandler("ping", ping))
-    app.add_error_handler(error_handler)
+# ✅ Render 健康检查用（非必要）
+@app.get("/")
+async def root():
+    return {"status": "ok"}
 
-    logging.info("🤖 Bot iniciado e aguardando comandos.")
-    app.run_polling()
+# ✅ 注册 handler 和错误处理器
+application.add_handler(CommandHandler("ping", ping))
+application.add_error_handler(error_handler)
 
-if __name__ == '__main__':
-    main()
+# ✅ 启动入口
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(on_startup())
+    uvicorn.run("jilibot:app", host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
