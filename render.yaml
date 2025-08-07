@@ -1,10 +1,12 @@
 services:
   - type: web
-    name: jili-signal-bot
+    name: jilibot
     env: python
-    plan: free
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python jilibot.py"
+    buildCommand: |
+      pyenv install 3.10.13
+      pyenv global 3.10.13
+      pip install -r requirements.txt
+    startCommand: python jili.py
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.10.13
+      - key: BOT_TOKEN
+        value: your_bot_token_here
