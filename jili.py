@@ -62,8 +62,10 @@ async def send_signals(context: ContextTypes.DEFAULT_TYPE):
         next_signal_time = current_time + timedelta(hours=1)
         message += f"<b>⚠️ O próximo sinal será às {next_signal_time.strftime('%H:%M')} ⏰</b>"
 
+        TARGET_CHAT_ID = -1001748407396
+
         await context.bot.send_message(
-            chat_id=-1001748407396,
+            chat_id=TARGET_CHAT_ID,
             text=message,
             parse_mode='HTML',
             disable_notification=True
@@ -74,7 +76,8 @@ async def send_signals(context: ContextTypes.DEFAULT_TYPE):
 
 async def main():
     app = ApplicationBuilder().token(bot_token).build()
-
+    app.add_handler(CommandHandler("ping", ping))
+    
     # 获取 job queue
     job_queue = app.job_queue
 
@@ -90,6 +93,9 @@ async def main():
     )
     
     await app.run_polling()
+    
+async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("✅ Bot is alive!")
 
 if __name__ == '__main__':
     asyncio.run(main())
