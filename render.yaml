@@ -4,3 +4,5 @@ services:
     env: docker
     plan: free
     autoDeploy: true
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
