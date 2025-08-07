@@ -102,6 +102,9 @@ async def send_signals(context: ContextTypes.DEFAULT_TYPE):
 
 # ✅ 机器人启动后执行任务（设定定时发送）
 async def on_startup():
+    await application.bot.delete_webhook()
+    logging.info("🧹 旧 webhook 已清除")
+    
     # 设置 webhook
     await application.bot.set_webhook(WEBHOOK_URL)
     logging.info(f"✅ Webhook set: {WEBHOOK_URL}")
