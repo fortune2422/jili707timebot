@@ -9,11 +9,24 @@ import pytz
 import random
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
+# ✅ 设置日志输出
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
 
+# ✅ Bot token
 bot_token = '6588452433:AAFf0uLB8y6wkA3hi0nU8o78HWla7wsdk9I'
 
-# async function to send signals
+# ✅ /ping 命令响应
+async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("✅ Bot is alive!")
+
+# ✅ 错误处理器
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    logging.error("🚨 Exception while handling update:", exc_info=context.error)
+
+# ✅ 定时任务发送函数
 async def send_signals(context: ContextTypes.DEFAULT_TYPE):
     try:
         signals = {
@@ -42,8 +55,7 @@ async def send_signals(context: ContextTypes.DEFAULT_TYPE):
                 ):
                     available_times.add(signal_time.strftime("%H:%M"))
 
-            sorted_times = sorted(available_times)
-            signals[animal] = sorted_times
+            signals[animal] = sorted(available_times)
 
         message = """<b>🚨 Jili707 Alerta de Sinais Estratégias: Horário Pagantes ⏰.</b>
 
@@ -61,7 +73,7 @@ async def send_signals(context: ContextTypes.DEFAULT_TYPE):
         next_signal_time = current_time + timedelta(hours=1)
         message += f"<b>⚠️ O próximo sinal será às {next_signal_time.strftime('%H:%M')} ⏰</b>"
 
-        TARGET_CHAT_ID = -1001748407396
+        TARGET_CHAT_ID = -1001748407396  # ✅ 替换为你的频道 ID
 
         await context.bot.send_message(
             chat_id=TARGET_CHAT_ID,
@@ -69,29 +81,33 @@ async def send_signals(context: ContextTypes.DEFAULT_TYPE):
             parse_mode='HTML',
             disable_notification=True
         )
+        logging.info("✅ Sinais enviados com sucesso.")
 
     except Exception as e:
-        logging.error(f"An error occurred: {e}")
+        logging.error(f"❌ Erro ao enviar sinais: {e}")
 
+# ✅ 启动任务（在 bot 启动后触发）
 async def on_startup(app):
-    # 安排任务：每小时一次，从下个整点开始
     job_queue = app.job_queue
-    current_time = datetime.now(pytz.timezone('America/Sao_Paulo'))
-    seconds_until_next_hour = (60 - current_time.minute) * 60 - current_time.second
+    brazil_tz = pytz.timezone('America/Sao_Paulo')
+    now = datetime.now(brazil_tz)
+    seconds_until_next_hour = (60 - now.minute) * 60 - now.second
 
     job_queue.run_repeating(
         send_signals,
         interval=3600,
         first=timedelta(seconds=seconds_until_next_hour)
     )
-    logging.info("✅ 定时任务已启动")
+    logging.info("⏰ Agendador de sinais iniciado.")
 
-async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✅ Bot is alive!")
-
+# ✅ 主函数
 def main():
     app = ApplicationBuilder().token(bot_token).post_init(on_startup).build()
+
     app.add_handler(CommandHandler("ping", ping))
+    app.add_error_handler(error_handler)
+
+    logging.info("🤖 Bot iniciado e aguardando comandos.")
     app.run_polling()
 
 if __name__ == '__main__':
