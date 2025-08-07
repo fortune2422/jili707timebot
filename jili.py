@@ -143,4 +143,4 @@ application.add_error_handler(error_handler)
 if __name__ == "__main__":
     import asyncio
     asyncio.run(on_startup())
-    uvicorn.run("jilibot:app", host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    uvicorn.run("jili:app", host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
