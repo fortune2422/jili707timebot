@@ -3,6 +3,6 @@ services:
     name: jilibot
     env: docker
     plan: free
-    autoDeploy: true
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    envVars:
+      - key: BOT_TOKEN
+        value: 6588452433:AAFf0uLB8y6wkA3hi0nU8o78HWla7wsdk9I
