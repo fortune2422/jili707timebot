@@ -1,7 +1,10 @@
 services:
   - type: web
-    name: new-telegram-bot
+    name: jili-signal-bot
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: python bot.py
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python jilibot.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.13
