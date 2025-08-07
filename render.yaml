@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: jilibot
+    name: jili
     env: docker
     plan: free
     envVars:
