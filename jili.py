@@ -145,4 +145,4 @@ application.add_error_handler(error_handler)
 
 # === 启动 uvicorn ===
 if __name__ == "__main__":
-    uvicorn.run("jilibot:app", host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    uvicorn.run("jili:app", host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
