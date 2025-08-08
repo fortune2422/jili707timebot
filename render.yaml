@@ -1,8 +1,14 @@
 services:
   - type: web
-    name: jili
+    name: jili-signal-bot
     env: docker
     plan: free
+    autoDeploy: true
     envVars:
       - key: BOT_TOKEN
         value: 6588452433:AAFf0uLB8y6wkA3hi0nU8o78HWla7wsdk9I
+      - key: RENDER_EXTERNAL_HOSTNAME
+        value: https://jili707timebot.onrender.com
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /webhook
+    region: singapore
