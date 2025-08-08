@@ -67,6 +67,7 @@ async def send_signals(context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML",
             disable_notification=True,
         )
+        logging.info("📢 信号已发送成功")
     except Exception as e:
         logging.error(f"❌ 发送信号出错: {e}")
 
@@ -75,12 +76,16 @@ async def on_startup(app):
     brazil_time = datetime.now(pytz.timezone("America/Sao_Paulo"))
     seconds_until_next_hour = (60 - brazil_time.minute) * 60 - brazil_time.second
 
+    # 启动时立即推送一次
+    await send_signals(ContextTypes.DEFAULT_TYPE(bot=app.bot, job=None))
+
+    # 每小时整点推送
     app.job_queue.run_repeating(
         send_signals,
         interval=3600,
         first=timedelta(seconds=seconds_until_next_hour),
     )
-    logging.info("✅ 定时任务已启动")
+    logging.info("✅ 定时任务已启动（已立即推送一次）")
 
 # ping 命令
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
