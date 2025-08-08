@@ -7,8 +7,6 @@ services:
     envVars:
       - key: BOT_TOKEN
         value: 6588452433:AAFf0uLB8y6wkA3hi0nU8o78HWla7wsdk9I
-      - key: WEBHOOK_URL
-        value: https://jili707timebot.onrender.com
     dockerfilePath: ./Dockerfile
-    healthCheckPath: /webhook
+    healthCheckPath: /health
     region: singapore
