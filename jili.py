@@ -6,10 +6,10 @@ from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# 日志设置
+# 日志配置
 logging.basicConfig(level=logging.INFO)
 
-# 环境变量
+# 读取环境变量
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 PORT = int(os.environ.get("PORT", 8080))
 WEBHOOK_URL = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}/webhook"
@@ -17,7 +17,7 @@ WEBHOOK_URL = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}/webhook"
 # 目标群 ID（改成你自己的）
 TARGET_CHAT_ID = -1001748407396
 
-# 定时任务：发送信号
+# 发送信号
 async def send_signals(context: ContextTypes.DEFAULT_TYPE):
     try:
         signals = {
@@ -71,16 +71,16 @@ async def send_signals(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logging.error(f"❌ 发送信号出错: {e}")
 
-# 启动时设置定时任务
-async def on_startup(app):
+# 启动时设置任务
+async def start_jobs(application):
     brazil_time = datetime.now(pytz.timezone("America/Sao_Paulo"))
     seconds_until_next_hour = (60 - brazil_time.minute) * 60 - brazil_time.second
 
-    # 启动时立即推送一次
-    await send_signals(ContextTypes.DEFAULT_TYPE(bot=app.bot, job=None))
+    # 启动后立即发一次
+    await send_signals(ContextTypes.DEFAULT_TYPE(bot=application.bot))
 
-    # 每小时整点推送
-    app.job_queue.run_repeating(
+    # 每整点发一次
+    application.job_queue.run_repeating(
         send_signals,
         interval=3600,
         first=timedelta(seconds=seconds_until_next_hour),
@@ -95,11 +95,13 @@ def main():
     app = (
         ApplicationBuilder()
         .token(BOT_TOKEN)
-        .post_init(on_startup)
         .build()
     )
 
     app.add_handler(CommandHandler("ping", ping))
+
+    # 启动 webhook 前启动任务
+    app.post_init(start_jobs)
 
     logging.info(f"🚀 启动 Webhook: {WEBHOOK_URL}")
     app.run_webhook(
