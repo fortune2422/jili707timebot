@@ -1,84 +1,84 @@
 import os
 import pytz
 import logging
-from fastapi import FastAPI, Request
+from datetime import datetime, time, timedelta
+from fastapi import FastAPI
 from telegram import Bot
-from telegram.ext import Application, CommandHandler
 from telegram.ext import ApplicationBuilder
+from telegram.ext import CommandHandler
 from telegram.ext import ContextTypes
-from datetime import datetime
 
 # 日志
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# 环境变量
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-TARGET_CHAT_ID = -1001748407396  # 群ID
+TARGET_CHAT_ID = -1001748407396  # 群 ID
 
-# 定义 signals
+# Signal 数据
 signals = {
-    "🐯 Fortuna do Tigre 🐯": [],
-    "🐇 Fortuna do Coelho 🐇": [],
-    "🐁 Fortuna do Rato 🐁": [],
-    "🐂 Fortuna do Boi 🐂": [],
-    "🐲 Fortuna do Dragão 🐲": [],
+    "🐯 Fortuna do Tigre 🐯": ["Sinal 1", "Sinal 2"],
+    "🐇 Fortuna do Coelho 🐇": ["Sinal A", "Sinal B"],
+    "🐁 Fortuna do Rato 🐁": ["Sinal X", "Sinal Y"],
+    "🐂 Fortuna do Boi 🐂": ["Sinal M", "Sinal N"],
+    "🐲 Fortuna do Dragão 🐲": ["Sinal P", "Sinal Q"],
 }
 
-# FastAPI 用于 webhook
+# 创建 FastAPI
 app = FastAPI()
 
-@app.post("/webhook")
-async def webhook(request: Request):
-    await application.update_queue.put(await request.json())
-    return {"ok": True}
+# Bot 实例
+bot = Bot(token=BOT_TOKEN)
 
-@app.get("/")
-async def root():
-    return {"status": "ok"}
-
-# 定时任务：每小时发送 signals
+# 每小时整点发送 signals
 async def send_signals(context: ContextTypes.DEFAULT_TYPE):
-    now = datetime.now(pytz.timezone("Asia/Bangkok")).strftime("%Y-%m-%d %H:%M")
-    message = f"📢 Sinais - {now}\n\n"
-    for animal, data in signals.items():
-        message += f"{animal}:\n"
-        if data:
-            for sig in data:
-                message += f" - {sig}\n"
-        else:
-            message += " (Sem sinais no momento)\n"
-        message += "\n"
-
-    await context.bot.send_message(chat_id=TARGET_CHAT_ID, text=message)
+    now = datetime.now(pytz.timezone("Asia/Phnom_Penh")).strftime("%Y-%m-%d %H:%M:%S")
+    message = f"📢 信号更新 ({now})\n\n"
+    for name, sigs in signals.items():
+        message += f"{name}\n" + "\n".join(sigs) + "\n\n"
+    await bot.send_message(chat_id=TARGET_CHAT_ID, text=message)
+    logger.info("✅ 已发送信号到群")
 
 # /start 命令
 async def start(update, context):
-    await update.message.reply_text("✅ Bot está ativo e enviará sinais a cada hora!")
+    await update.message.reply_text("Bot 正在运行，每小时会自动发送 signals 到群。")
 
-# 启动 Application
-application = ApplicationBuilder().token(BOT_TOKEN).build()
-
-# 添加命令
-application.add_handler(CommandHandler("start", start))
-
-# 添加定时任务（每小时整点）
-application.job_queue.run_repeating(
-    send_signals,
-    interval=3600,
-    first=0,  # 启动时立即执行一次
-    name="hourly_signals"
-)
-
-# 启动 Webhook
+# 启动 bot
 async def main():
+    application = (
+        ApplicationBuilder()
+        .token(BOT_TOKEN)
+        .updater(None)
+        .build()
+    )
+
+    # 绑定命令
+    application.add_handler(CommandHandler("start", start))
+
+    # 设置 webhook
     await application.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
-    logging.info(f"Webhook set to {WEBHOOK_URL}/webhook")
 
-import asyncio
-asyncio.get_event_loop().run_until_complete(main())
+    # 定时任务：每小时整点
+    tz = pytz.timezone("Asia/Phnom_Penh")
+    now = datetime.now(tz)
+    first_run = tz.localize(datetime.combine(now.date(), time(now.hour))) + timedelta(hours=1)
+    application.job_queue.run_repeating(send_signals, interval=3600, first=first_run)
 
-# 启动 FastAPI（Uvicorn）
-if __name__ == "__main__":
+    # 启动 webhook
+    from telegram.ext import Application
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=10000)
+
+    # FastAPI webhook 接口
+    @app.post("/webhook")
+    async def webhook_handler(update: dict):
+        await application.update_queue.put(update)
+        return {"status": "ok"}
+
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
