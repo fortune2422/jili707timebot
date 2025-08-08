@@ -119,5 +119,5 @@ if __name__ == "__main__":
     # 绑定 Render 提供的 PORT（默认 8000）
     port = int(os.environ.get("PORT", 8000))
     # 运行 uvicorn（这会马上绑定端口，Render 扫描就能检测到）
-    uvicorn.run("jilibot:app" if __name__ == "__main__" else "jilibot:app",
+    uvicorn.run("jili:app" if __name__ == "__main__" else "jili:app",
                 host="0.0.0.0", port=port, log_level="info")
