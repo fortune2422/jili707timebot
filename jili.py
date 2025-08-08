@@ -2,7 +2,7 @@ import os
 import pytz
 import logging
 from datetime import datetime, time, timedelta
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from telegram import Bot
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
@@ -11,7 +11,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-# 自动回退到 Render 外网域名
 WEBHOOK_URL = os.getenv("WEBHOOK_URL") or f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}"
 TARGET_CHAT_ID = -1001748407396  # 群 ID
 
@@ -43,7 +42,6 @@ async def send_signals(context: ContextTypes.DEFAULT_TYPE):
 async def start(update, context):
     await update.message.reply_text("Bot 正在运行，每小时会自动发送 signals 到群。")
 
-# 主程序
 async def main():
     application = (
         ApplicationBuilder()
@@ -57,7 +55,6 @@ async def main():
 
     # 设置 webhook
     await application.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
-    logger.info(f"✅ Webhook 已设置为 {WEBHOOK_URL}/webhook")
 
     # 定时任务：每小时整点
     tz = pytz.timezone("Asia/Phnom_Penh")
@@ -65,15 +62,16 @@ async def main():
     first_run = tz.localize(datetime.combine(now.date(), time(now.hour))) + timedelta(hours=1)
     application.job_queue.run_repeating(send_signals, interval=3600, first=first_run)
 
-    # FastAPI 接口
+    # FastAPI webhook 接口
     @app.post("/webhook")
-    async def webhook_handler(update: dict):
-        await application.update_queue.put(update)
+    async def webhook_handler(request: Request):
+        data = await request.json()
+        await application.update_queue.put(data)
         return {"status": "ok"}
 
     await application.initialize()
     await application.start()
-    await application.run_until_disconnected()
+    logger.info("🚀 Bot 已启动（Webhook 模式）")
 
 if __name__ == "__main__":
     import asyncio
