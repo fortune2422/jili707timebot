@@ -1,115 +1,84 @@
 import os
-import logging
 import pytz
-import random
-from datetime import datetime, timedelta
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import logging
+from fastapi import FastAPI, Request
+from telegram import Bot
+from telegram.ext import Application, CommandHandler
+from telegram.ext import ApplicationBuilder
+from telegram.ext import ContextTypes
+from datetime import datetime
 
-# 日志配置
+# 日志
 logging.basicConfig(level=logging.INFO)
 
-# 读取环境变量
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-PORT = int(os.environ.get("PORT", 8080))
-WEBHOOK_URL = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}/webhook"
+# 环境变量
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+TARGET_CHAT_ID = -1001748407396  # 群ID
 
-# 目标群 ID（改成你自己的）
-TARGET_CHAT_ID = -1001748407396
+# 定义 signals
+signals = {
+    "🐯 Fortuna do Tigre 🐯": [],
+    "🐇 Fortuna do Coelho 🐇": [],
+    "🐁 Fortuna do Rato 🐁": [],
+    "🐂 Fortuna do Boi 🐂": [],
+    "🐲 Fortuna do Dragão 🐲": [],
+}
 
-# 发送信号
+# FastAPI 用于 webhook
+app = FastAPI()
+
+@app.post("/webhook")
+async def webhook(request: Request):
+    await application.update_queue.put(await request.json())
+    return {"ok": True}
+
+@app.get("/")
+async def root():
+    return {"status": "ok"}
+
+# 定时任务：每小时发送 signals
 async def send_signals(context: ContextTypes.DEFAULT_TYPE):
-    try:
-        signals = {
-            "🐯 Fortuna do Tigre 🐯": [],
-            "🐇 Fortuna do Coelho 🐇": [],
-            "🐁 Fortuna do Rato 🐁": [],
-            "🐂 Fortuna do Boi 🐂": [],
-            "🐲 Fortuna do Dragão 🐲": [],
-        }
+    now = datetime.now(pytz.timezone("Asia/Bangkok")).strftime("%Y-%m-%d %H:%M")
+    message = f"📢 Sinais - {now}\n\n"
+    for animal, data in signals.items():
+        message += f"{animal}:\n"
+        if data:
+            for sig in data:
+                message += f" - {sig}\n"
+        else:
+            message += " (Sem sinais no momento)\n"
+        message += "\n"
 
-        num_times = 6
-        brazil_timezone = pytz.timezone("America/Sao_Paulo")
-        current_time = datetime.now(brazil_timezone)
-        start_time = current_time.replace(minute=0, second=0, microsecond=0)
-        end_time = start_time + timedelta(hours=1)
+    await context.bot.send_message(chat_id=TARGET_CHAT_ID, text=message)
 
-        for animal in signals:
-            available_times = set()
-            while len(available_times) < num_times:
-                random_minutes = random.randint(0, 59)
-                signal_time = start_time + timedelta(minutes=random_minutes)
-                if (
-                    current_time <= signal_time < end_time
-                    and signal_time.strftime("%H:%M") not in available_times
-                ):
-                    available_times.add(signal_time.strftime("%H:%M"))
-            signals[animal] = sorted(available_times)
+# /start 命令
+async def start(update, context):
+    await update.message.reply_text("✅ Bot está ativo e enviará sinais a cada hora!")
 
-        message = (
-            "<b>🚨 Jili707 Alerta de Sinais Estratégias: Horário Pagantes ⏰.</b>\n\n"
-            "<b>⏰ Fuso Horário: Brasil - São Paulo ⏰.</b>\n\n"
-            "<b>👉🏻 Confira nosso site oficial: "
-            "<a href='https://app027.jili707.com'>https://app027.jili707.com</a></b>\n\n"
-        )
+# 启动 Application
+application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-        for animal, times in signals.items():
-            message += f"<b>{animal}</b>\n<pre>"
-            message += "  ".join([f"✅ {t}" for t in times])
-            message += "</pre>\n\n"
+# 添加命令
+application.add_handler(CommandHandler("start", start))
 
-        next_signal_time = current_time + timedelta(hours=1)
-        message += f"<b>⚠️ O próximo sinal será às {next_signal_time.strftime('%H:%M')} ⏰</b>"
+# 添加定时任务（每小时整点）
+application.job_queue.run_repeating(
+    send_signals,
+    interval=3600,
+    first=0,  # 启动时立即执行一次
+    name="hourly_signals"
+)
 
-        await context.bot.send_message(
-            chat_id=TARGET_CHAT_ID,
-            text=message,
-            parse_mode="HTML",
-            disable_notification=True,
-        )
-        logging.info("📢 信号已发送成功")
-    except Exception as e:
-        logging.error(f"❌ 发送信号出错: {e}")
+# 启动 Webhook
+async def main():
+    await application.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
+    logging.info(f"Webhook set to {WEBHOOK_URL}/webhook")
 
-# 启动时设置任务
-async def start_jobs(application):
-    brazil_time = datetime.now(pytz.timezone("America/Sao_Paulo"))
-    seconds_until_next_hour = (60 - brazil_time.minute) * 60 - brazil_time.second
+import asyncio
+asyncio.get_event_loop().run_until_complete(main())
 
-    # 启动后立即发一次
-    await send_signals(ContextTypes.DEFAULT_TYPE(bot=application.bot))
-
-    # 每整点发一次
-    application.job_queue.run_repeating(
-        send_signals,
-        interval=3600,
-        first=timedelta(seconds=seconds_until_next_hour),
-    )
-    logging.info("✅ 定时任务已启动（已立即推送一次）")
-
-# ping 命令
-async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✅ Bot is alive!")
-
-def main():
-    app = (
-        ApplicationBuilder()
-        .token(BOT_TOKEN)
-        .build()
-    )
-
-    app.add_handler(CommandHandler("ping", ping))
-
-    # 启动 webhook 前启动任务
-    app.post_init(start_jobs)
-
-    logging.info(f"🚀 启动 Webhook: {WEBHOOK_URL}")
-    app.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        url_path="webhook",
-        webhook_url=WEBHOOK_URL,
-    )
-
+# 启动 FastAPI（Uvicorn）
 if __name__ == "__main__":
-    main()
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=10000)
